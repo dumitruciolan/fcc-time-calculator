@@ -1,77 +1,62 @@
 weekdays = ["Sunday", "Monday", "Tuesday",
             "Wednesday", "Thursday", "Friday", "Saturday"]
-days_later = 0
 
 
-def remove_am_pm(start_time):
-    start_time.pop(1)
-    start_time = ''.join(start_time)
-    return start_time
+def get_modifiers(start_time):
+    modifier = start_time[-2:]  # extract AM/PM from string
+    initial_modifier = modifier  # backup the initial AM/PM
+    AMPM_count = 0  # store the number of AM/PM changes
+    return modifier, initial_modifier, AMPM_count
 
 
-def calculate_time(start, duration, position):
-    return int(start.split(":")[position]) + int(duration.split(":")[position])
-
-
-def update_mins_and_hours(minute, hour):
+def calculate_interval(start_time, duration):  # + remove AM/PM from string
+    hour = int(start_time[:-2].split(":")[0]) + int(duration.split(":")[0])
+    minute = int(start_time[:-2].split(":")[1]) + int(duration.split(":")[1])
     if minute > 59:
-        minute -= 60
         hour += 1
-    return minute, hour
+        minute -= 60
+    return hour, minute
 
 
-def update_modifs(modifiers_later, modifier, hour_modifier):
-    modifiers_later += 1
+def set_modifiers(modifier, AMPM_count, hour_count):
     modifier = "AM" if modifier == "PM" else "PM"
-    hour_modifier -= 12
-    return modifiers_later, modifier, hour_modifier
+    AMPM_count += 1
+    hour_count -= 12
+    return modifier, AMPM_count, hour_count
 
 
-def switch_between_am_pm(initial_modifier, modifiers_later):
-    if initial_modifier == "AM":
-        modifiers_later -= 1
-    elif initial_modifier == "PM":
-        modifiers_later += 1
-    return modifiers_later
+def process_AMPM_count(initial_modifier, AMPM_count):
+    if AMPM_count % 2 != 0:  # round up the modifier
+        if initial_modifier == "AM":
+            AMPM_count -= 1
+        elif initial_modifier == "PM":
+            AMPM_count += 1
+    return AMPM_count
 
 
-def check_if_its_next_day(days_later, new_time):
-    if days_later == 1:
-        new_time += " (next day)"
-    elif days_later > 1:
-        new_time += f" ({int(days_later)} days later)"
-    return new_time
+def check_day(day, days_count, time):
+    if day:  # if day parameter exists, update new time with the new weekday
+        time += f", {weekdays[int((weekdays.index(day.title()) + days_count) % 7)]}"
+    if days_count == 1:
+        time += " (next day)"
+    elif days_count > 1:
+        time += f" ({int(days_count)} days later)"
+    return time
 
 
 # gets 3 parameters (2 required, 1 optional)
 def add_time(start_time, duration, day=None):
-    modifs_l8r = 0  # stores the number of AM/PM changes
+    modif, init_modif, AMPM_count = get_modifiers(start_time)
+    hour, minute = calculate_interval(start_time, duration)
+    h_count = hour  # save the hours total
 
-    start_time = start_time.split(" ")  # convert into list type
-    modif = start_time[1]  # get the initial AM/PM
-    temp_modif = modif  # save the initial AM/PM
-
-    start_time = remove_am_pm(start_time)  # get the time without AM/PM
-    minute = calculate_time(start_time, duration, 1)  # retrieve the minutes
-    hour = calculate_time(start_time, duration, 0)  # retrieve the hour
-    minute, hour = update_mins_and_hours(minute, hour)
-    h_modif = hour  # save the hour modifier
-
-    while hour > 12:  # keep the hour in the AM/PM format
+    while hour > 12:  # keep the time in the 12-hour clock format
         hour -= 12
 
-    while h_modif > 11:  # recalculate the modifiers
-        modifs_l8r, modif, h_modif = update_modifs(modifs_l8r, modif, h_modif)
+    while h_count > 11:  # readjust the modifiers to the correct values
+        modif, AMPM_count, h_count = set_modifiers(modif, AMPM_count, h_count)
 
-    if modifs_l8r % 2 != 0:  # switch between AM and PM
-        modifs_l8r = switch_between_am_pm(temp_modif, modifs_l8r)
+    days_later = process_AMPM_count(init_modif, AMPM_count) / 2  # days counter
+    new_time = f"{hour}:{str(minute).zfill(2)} {modif}"  # rebuild the time str
 
-    days_later = modifs_l8r / 2  # check how many days later it is
-    new_time = f"{hour}:{str(minute).zfill(2)} {modif}"  # prepare return value
-
-    if day:  # if day parameter exists, update the return value with the new weekday
-        new_time += f", {weekdays[int((weekdays.index(day.title()) + days_later) % 7)]}"
-
-    new_time = check_if_its_next_day(days_later, new_time)
-
-    return new_time
+    return check_day(day, days_later, new_time)
